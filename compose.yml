@@ -1,3 +1,4 @@
+version: "3.9"
 services:
   app-service:
     image: naginipython/app-service # specify name of image on Docker Hub
@@ -12,5 +13,7 @@ services:
   auth-service:
     image: naginipython/auth-service
     restart: "always" # automatically restart container when server crashes
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "3000:3000" # expose port 3000 so that applications outside the container can connect to it 

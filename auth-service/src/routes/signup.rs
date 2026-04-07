@@ -1,5 +1,4 @@
-use axum::{Json, extract::State, response::IntoResponse};
-use reqwest::StatusCode;
+use axum::{Json, extract::State, response::IntoResponse, http::StatusCode};
 use serde::{Deserialize, Serialize};
 
 use crate::{app_state::AppState, domain::{AuthAPIError, Email, Password, User}};
@@ -21,8 +20,8 @@ pub async fn signup(
     State(state): State<AppState>,
     Json(request): Json<SignupRequest>
 ) -> Result<impl IntoResponse, AuthAPIError> {
-    let email = Email::parse(&request.email);
-    let password = Password::parse(&request.password);
+    let email = Email::parse(request.email);
+    let password = Password::parse(request.password);
     
     if let (Ok(email), Ok(password)) = (email, password) {
         let user = User::new(email, password, request.requires_2fa);

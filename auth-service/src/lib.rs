@@ -1,7 +1,6 @@
 use std::error::Error;
 
-use axum::{Json, Router, response::IntoResponse, routing::post, serve::Serve};
-use reqwest::StatusCode;
+use axum::{Json, Router, response::IntoResponse, routing::post, serve::Serve, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
@@ -12,6 +11,7 @@ pub mod routes;
 pub mod domain;
 pub mod service;
 pub mod app_state;
+pub mod utils;
 
 pub struct Application {
     server: Serve<TcpListener, Router, Router>,
@@ -56,7 +56,8 @@ impl IntoResponse for AuthAPIError {
         let (status, error_message) = match self {
             AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
             AuthAPIError::InvalidCredentials => (StatusCode::BAD_REQUEST, "Invalid credentials"),
-            AuthAPIError::UnexpectedError => (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
+            AuthAPIError::UnexpectedError => (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error"),
+            AuthAPIError::IncorrectCredentials => (StatusCode::UNAUTHORIZED, "Incorrect credentials")
         };
         let body = Json(ErrorResponse {
             error: error_message.to_string()

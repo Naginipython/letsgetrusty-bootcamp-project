@@ -11,8 +11,9 @@ async fn main() {
     let app = Application::build(app_state, "0.0.0.0:3000")
         .await
         .expect("Failed to build app");
-
+            
     app.run().await.expect("Failed to run app");
+
 
     // let assets_dir = ServeDir::new("assets");
     // let app = Router::new()

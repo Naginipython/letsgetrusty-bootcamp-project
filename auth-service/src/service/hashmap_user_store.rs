@@ -9,7 +9,7 @@ pub struct HashmapUserStore {
 
 #[async_trait::async_trait]
 impl UserStore for HashmapUserStore {
-    
+
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
         if self.users.contains_key(&user.email) {
             Err(UserStoreError::UserAlreadyExists)
@@ -18,11 +18,11 @@ impl UserStore for HashmapUserStore {
             Ok(())
         }
     }
-    
+
     async fn get_user(&self, email: &Email) -> Result<&User, UserStoreError> {
         self.users.get(email).ok_or(UserStoreError::UserNotFound)
     }
-    
+
     async fn validate_user(&self, email: &Email, password: &Password) -> Result<(), UserStoreError> {
         if let Some(user) = self.users.get(email) {
             if user.password.as_ref() == password.as_ref() {
@@ -34,7 +34,7 @@ impl UserStore for HashmapUserStore {
             Err(UserStoreError::UserNotFound)
         }
     }
-    
+
 }
 
 #[cfg(test)]
@@ -44,11 +44,11 @@ mod tests {
     #[tokio::test]
     async fn test_add_user() {
         let mut usermap = HashmapUserStore::default();
-        let user = User::new(Email::parse("test@test.com").unwrap(), Password::parse("password").unwrap(), false);
+        let user = User::new(Email::parse(String::from("test@test.com")).unwrap(), Password::parse(String::from("password")).unwrap(), false);
         let result = usermap.add_user(user).await;
         assert_eq!(result, Ok(()));
 
-        let user = User::new(Email::parse("test@test.com").unwrap(), Password::parse("password").unwrap(), false);
+        let user = User::new(Email::parse(String::from("test@test.com")).unwrap(), Password::parse(String::from("password")).unwrap(), false);
         let result = usermap.add_user(user).await;
         assert_eq!(result, Err(UserStoreError::UserAlreadyExists))
     }
@@ -56,14 +56,14 @@ mod tests {
     #[tokio::test]
     async fn test_get_users() {
         let mut usermap = HashmapUserStore::default();
-        let user = User::new(Email::parse("test@test.com").unwrap(), Password::parse("password").unwrap(), false);
+        let user = User::new(Email::parse(String::from("test@test.com")).unwrap(), Password::parse(String::from("password")).unwrap(), false);
         let _ = usermap.add_user(user).await;
 
-        let result = usermap.get_user(&Email::parse("test@test.com").unwrap()).await;
+        let result = usermap.get_user(&Email::parse(String::from("test@test.com")).unwrap()).await;
 
-        let user = User::new(Email::parse("test@test.com").unwrap(), Password::parse("password").unwrap(), false);
+        let user = User::new(Email::parse(String::from("test@test.com")).unwrap(), Password::parse(String::from("password")).unwrap(), false);
         assert_eq!(result, Ok(&user));
-        let result = usermap.get_user(&Email::parse("bad_email@email.com").unwrap()).await;
+        let result = usermap.get_user(&Email::parse(String::from("bad_email@email.com")).unwrap()).await;
         assert_eq!(result, Err(UserStoreError::UserNotFound))
 
     }
@@ -71,16 +71,16 @@ mod tests {
     #[tokio::test]
     async fn test_validate_user() {
         let mut usermap = HashmapUserStore::default();
-        let user = User::new(Email::parse("test@test.com").unwrap(), Password::parse("password").unwrap(), false);
+        let user = User::new(Email::parse(String::from("test@test.com")).unwrap(), Password::parse(String::from("password")).unwrap(), false);
         let _ = usermap.add_user(user).await;
 
-        let result = usermap.validate_user(&Email::parse("test@test.com").unwrap(), &Password::parse("password").unwrap()).await;
+        let result = usermap.validate_user(&Email::parse(String::from("test@test.com")).unwrap(), &Password::parse(String::from("password")).unwrap()).await;
         assert_eq!(result, Ok(()));
 
-        let result = usermap.validate_user(&Email::parse("bad_email@email.com").unwrap(), &Password::parse("password").unwrap()).await;
+        let result = usermap.validate_user(&Email::parse(String::from("bad_email@email.com")).unwrap(), &Password::parse(String::from("password")).unwrap()).await;
         assert_eq!(result, Err(UserStoreError::UserNotFound));
 
-        let result = usermap.validate_user(&Email::parse("test@test.com").unwrap(), &Password::parse("badpassword").unwrap()).await;
+        let result = usermap.validate_user(&Email::parse(String::from("test@test.com")).unwrap(), &Password::parse(String::from("badpassword")).unwrap()).await;
         assert_eq!(result, Err(UserStoreError::InvalidCredentials));
     }
 }
