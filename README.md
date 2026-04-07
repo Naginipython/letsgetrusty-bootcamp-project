@@ -27,9 +27,9 @@ cargo watch -q -c -w src/ -w assets/ -x run
 visit http://localhost:3000
 
 ## Run servers locally (Docker)
+Ensure you have a .env file in the `auth-service` with the key `JWT_TOKEN`
 ```bash
-docker compose build
-docker compose up
+./docker.sh
 ```
 
 visit http://localhost:8000 and http://localhost:3000
