@@ -40,7 +40,7 @@ pub async fn login(
             Ok(user) => user,
             Err(_) => return (jar, Err(AuthAPIError::IncorrectCredentials))
         };
-        
+
         match user.requires_2fa {
             true => handle_2fa(&user.email, &state, jar).await,
             false => handle_no_2fa(&user.email, jar).await,
@@ -65,19 +65,19 @@ async fn handle_no_2fa(email: &Email, jar: CookieJar) -> (
 async fn handle_2fa(email: &Email, state: &AppState, jar: CookieJar) -> (CookieJar, Result<(StatusCode, Json<LoginResponse>), AuthAPIError>) {
     let login_attempt_id = LoginAttemptId::default();
     let code = TwoFACode::default();
-    
+
     if let Err(_) = state.two_fa_code_store
         .write()
         .await
-        .add_code(email.clone(), login_attempt_id.clone(), code)
+        .add_code(email.clone(), login_attempt_id.clone(), code.clone())
         .await {
         return (jar, Err(AuthAPIError::UnexpectedError))
     }
-    
-    if let Err(_) = state.email_client.read().await.send_email(&email, "2FA Code", "123456").await {
+
+    if let Err(_) = state.email_client.read().await.send_email(&email, "2FA Code", code.as_ref()).await {
         return (jar, Err(AuthAPIError::UnexpectedError))
     }
-    
+
     let result = TwoFactorAuthResponse {
         message: String::from("2FA required"),
         login_attempt_id: String::from(login_attempt_id.as_ref())
