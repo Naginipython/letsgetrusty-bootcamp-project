@@ -42,7 +42,7 @@ async fn should_return_200_if_valid_jwt_cookie() {
     let signup_body = json!({
         "email": "test@test.com",
         "password": "password",
-        "requires2FA": true
+        "requires2FA": false
     });
     let response = app.post_signup(&signup_body).await;
     assert_eq!(response.status().as_u16(), 201);
@@ -80,7 +80,7 @@ async fn should_return_400_if_logout_called_twice_in_a_row() {
     let signup_body = json!({
         "email": "test@test.com",
         "password": "password",
-        "requires2FA": true
+        "requires2FA": false
     });
     let response = app.post_signup(&signup_body).await;
     assert_eq!(response.status().as_u16(), 201);

@@ -1,0 +1,13 @@
+use crate::domain::{EmailClient, Email};
+
+#[derive(Default)]
+pub struct MockEmailClient;
+
+#[async_trait::async_trait]
+impl EmailClient for MockEmailClient {
+    async fn send_email(&self, recipient: &Email, subject: &str, content: &str) -> Result<(), String> {
+        println!("Sending email to {} with subject: {subject} and content: {content}", recipient.as_ref());
+        
+        Ok(())
+    }
+}
