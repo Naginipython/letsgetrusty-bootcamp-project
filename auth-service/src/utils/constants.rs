@@ -5,6 +5,7 @@ use lazy_static::lazy_static;
 
 lazy_static! {
     pub static ref JWT_SECRET: String = set_token();
+    pub static ref DATABASE_URL: String = set_db_url();
 }
 
 pub const JWT_COOKIE_NAME: &str = "jwt";
@@ -17,9 +18,18 @@ fn set_token() -> String {
     }
     secret
 }
+fn set_db_url() -> String {
+    dotenv().ok();
+    let secret = env::var(myenv::DATABASE_URL_ENV_VAR).expect("DATABASE_URL must be set");
+    if secret.is_empty() {
+        panic!("DATABASE_URL must not be empty");
+    }
+    secret
+}
 
 pub mod myenv {
     pub const JWT_SECRET_ENV_VAR: &str = "JWT_SECRET";
+    pub const DATABASE_URL_ENV_VAR: &str = "DATABASE_URL";
 }
 
 pub mod prod {

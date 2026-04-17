@@ -2,6 +2,7 @@ use std::error::Error;
 
 use axum::{Json, Router, response::IntoResponse, routing::post, serve::Serve, http::{StatusCode, Method}};
 use serde::{Deserialize, Serialize};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use tokio::net::TcpListener;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
@@ -16,6 +17,11 @@ pub mod utils;
 pub struct Application {
     server: Serve<TcpListener, Router, Router>,
     pub address: String
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ErrorResponse {
+    pub error: String
 }
 
 impl Application {
@@ -57,11 +63,6 @@ impl Application {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct ErrorResponse {
-    pub error: String
-}
-
 impl IntoResponse for AuthAPIError {
     fn into_response(self) -> axum::response::Response {
         let (status, error_message) = match self {
@@ -77,4 +78,8 @@ impl IntoResponse for AuthAPIError {
         });
         (status, body).into_response()
     }
+}
+
+pub async fn get_postgres_pool(url: &str) -> Result<PgPool, sqlx::Error> {
+    PgPoolOptions::new().max_connections(5).connect(url).await
 }

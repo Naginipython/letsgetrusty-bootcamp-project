@@ -2,7 +2,7 @@ use axum::{Json, extract::State, response::IntoResponse, http::StatusCode};
 use axum_extra::extract::CookieJar;
 use serde::{Deserialize, Serialize};
 
-use crate::{app_state::AppState, domain::{AuthAPIError, Email, LoginAttemptId, Password, TwoFACode}, utils::auth::generate_auth_cookie};
+use crate::{app_state::AppState, domain::{AuthAPIError, Email, LoginAttemptId, TwoFACode}, utils::auth::generate_auth_cookie};
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
@@ -29,24 +29,30 @@ pub async fn login(
     jar: CookieJar,
     Json(request): Json<LoginRequest>
 ) -> (CookieJar, Result<impl IntoResponse, AuthAPIError>) {
-    if let (Ok(email), Ok(password)) = (Email::parse(request.email), Password::parse(request.password)) {
-        let user_store = &state.user_store.read().await;
+    let email = match Email::parse(request.email) {
+        Ok(email) => email,
+        Err(_) => return (jar, Err(AuthAPIError::InvalidCredentials))
+    };
+    
+    if request.password.len() < 8 {
+        return (jar, Err(AuthAPIError::InvalidCredentials));
+    }
+    
+    
+    let user_store = &state.user_store.read().await;
 
-        if let Err(_) = user_store.validate_user(&email, &password).await {
-            return (jar, Err(AuthAPIError::IncorrectCredentials));
-        }
+    if let Err(_) = user_store.validate_user(&email, &request.password).await {
+        return (jar, Err(AuthAPIError::IncorrectCredentials));
+    }
 
-        let user = match user_store.get_user(&email).await {
-            Ok(user) => user,
-            Err(_) => return (jar, Err(AuthAPIError::IncorrectCredentials))
-        };
+    let user = match user_store.get_user(&email).await {
+        Ok(user) => user,
+        Err(_) => return (jar, Err(AuthAPIError::IncorrectCredentials))
+    };
 
-        match user.requires_2fa {
-            true => handle_2fa(&user.email, &state, jar).await,
-            false => handle_no_2fa(&user.email, jar).await,
-        }
-    } else {
-        (jar, Err(AuthAPIError::InvalidCredentials))
+    match user.requires_2fa {
+        true => handle_2fa(&user.email, &state, jar).await,
+        false => handle_no_2fa(&user.email, jar).await,
     }
 }
 

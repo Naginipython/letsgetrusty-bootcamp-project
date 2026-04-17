@@ -82,7 +82,7 @@ mod auth_tests {
 
     use tokio::sync::RwLock;
 
-    use crate::{domain::BannedTokenStore, service::HashsetBannedTokenStore};
+    use crate::{domain::BannedTokenStore, service::data_stores::HashsetBannedTokenStore};
 
     use super::*;
 
