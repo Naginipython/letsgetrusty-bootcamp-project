@@ -1,11 +1,9 @@
 name: Build, Test and Deploy to Prod
 
-# Trigger the workflow when changes are pushed to the main branch
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 env:
   SQLX_OFFLINE: true
@@ -29,11 +27,9 @@ jobs:
           - 6379:6379
 
     steps:
-      # Checkout code from the repository
     - name: Checkout code
       uses: actions/checkout@v2
 
-      # Cache dependencies to speed up build times
     - name: Cache dependencies
       uses: actions/cache@v3
       with:
@@ -46,7 +42,10 @@ jobs:
         restore-keys: ${{ runner.os }}-cargo-
 
     - name: Install Rust
-      run: rustup update stable && rustup default stable
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
 
     - name: Build and test app-service code
       working-directory: ./app-service
@@ -59,11 +58,9 @@ jobs:
       run: |
         export JWT_SECRET=secret
         export DATABASE_URL=postgres://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432
-        export JWT_SECRET=secret
         cargo build --verbose
         cargo test --verbose
 
-      # Set up Docker Buildx for multi-platform builds
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
 
@@ -102,7 +99,7 @@ jobs:
       run: sudo apt-get install sshpass
 
     - name: Copy compose.yml to droplet
-      run: sshpass -v -p '${{ secrets.DROPLET_PASSWORD }}' scp -o StrictHostKeyChecking=no compose.yml root@${{ vars.DROPLET_IP }}:~
+      run: sshpass -v -p ${{ secrets.DROPLET_PASSWORD }} scp -o StrictHostKeyChecking=no compose.yml root@${{ vars.DROPLET_IP }}:~
 
     - name: Deploy
       uses: appleboy/ssh-action@master
@@ -115,6 +112,6 @@ jobs:
           export JWT_SECRET=${{ secrets.JWT_SECRET }}
           export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
           export POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          docker compose down
-          docker compose pull
-          docker compose up -d
+          docker-compose down
+          docker-compose pull
+          docker-compose up -d
