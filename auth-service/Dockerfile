@@ -2,7 +2,7 @@
 FROM rust:1.90-alpine AS chef
 USER root
 # Add cargo-chef to cache dependencies
-RUN apk add --no-cache musl-dev & cargo install cargo-chef # Needed to fix the & to be &&
+RUN apk add --no-cache musl-dev && cargo install cargo-chef
 WORKDIR /app
 
 FROM chef AS planner
@@ -16,7 +16,7 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 # Build application
 COPY . .
-ENV SQLX_OFFLINE true
+ENV SQLX_OFFLINE=true
 RUN cargo build --release --bin auth-service
 
 # We do not need the Rust toolchain to run the binary!
