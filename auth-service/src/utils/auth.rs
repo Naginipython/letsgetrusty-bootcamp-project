@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{app_state::BannedTokenStoreType, domain::Email, utils::constants::{JWT_COOKIE_NAME, JWT_SECRET}};
 
-const TOKEN_TTL_SECONDS: i64 = 600;
+pub const TOKEN_TTL_SECONDS: i64 = 600;
 
 #[derive(Debug)]
 pub enum GenerateTokenError {
@@ -25,7 +25,7 @@ pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, GenerateTo
 
 pub async fn validate_token(token: &str, banned_store: BannedTokenStoreType) -> Result<Claims, jsonwebtoken::errors::Error> {
     let banned_store = banned_store.read().await;
-    if banned_store.token_exists(&token).await {
+    if let Ok(true) = banned_store.token_exists(&token).await {
         return Err(
             jsonwebtoken::errors::new_error(
                 jsonwebtoken::errors::ErrorKind::Provider(String::from("Token Banned"))

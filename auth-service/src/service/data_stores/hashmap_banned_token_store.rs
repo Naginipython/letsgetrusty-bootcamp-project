@@ -17,8 +17,8 @@ impl BannedTokenStore for HashsetBannedTokenStore {
         Ok(())
     }
 
-    async fn token_exists(&self, token: &str) -> bool {
-        self.store.contains(&String::from(token))
+    async fn token_exists(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
+        Ok(self.store.contains(&String::from(token)))
     }
 }
 
@@ -48,7 +48,7 @@ mod tests {
         let _ = map.store_token("12345").await;
 
         let result = map.token_exists("12345").await;
-        assert!(result);
+        assert_eq!(Ok(true), result);
     }
 
     #[tokio::test]
@@ -57,6 +57,6 @@ mod tests {
         let _ = map.store_token("12345").await;
 
         let result = map.token_exists("6789").await;
-        assert!(!result);
+        assert_eq!(Ok(false), result);
     }
 }
