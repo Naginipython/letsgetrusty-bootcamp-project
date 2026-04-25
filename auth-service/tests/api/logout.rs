@@ -1,5 +1,6 @@
 use auth_service::{ErrorResponse, utils::constants::JWT_COOKIE_NAME};
 use reqwest::Url;
+use secrecy::SecretString;
 use serde_json::json;
 
 use crate::{app_test, helpers::TestApp};
@@ -56,7 +57,7 @@ app_test! {
             .expect("No auth cookie found");
         assert!(!auth_cookie.value().is_empty());
     
-        let token = String::from(auth_cookie.value());
+        let token = SecretString::new(String::from(auth_cookie.value()).into_boxed_str());
     
         let response = app.post_logout().await;
         assert_eq!(response.status().as_u16(), 200);
@@ -66,8 +67,8 @@ app_test! {
             .expect("No auth cookie found");
         assert!(auth_cookie.value().is_empty());
     
-        let result = app.banned_store.read().await.token_exists(&token).await;
-        assert_eq!(Ok(true), result);
+        let result = app.banned_store.read().await.token_exists(&token).await.unwrap();
+        assert!(result);
     }
 }
 

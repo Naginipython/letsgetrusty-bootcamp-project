@@ -1,19 +1,35 @@
+use std::hash::Hash;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct Email(String);
+use color_eyre::eyre::{eyre, Result};
+use secrecy::{ExposeSecret, SecretString};
 
-impl Email {
-    pub fn parse(email: String) -> Result<Self, String> {
-        if email.contains("@") {
-            Ok(Email(email))
-        } else {
-            Err(String::from("Email is not valid"))
-        }
+#[derive(Debug, Clone)]
+pub struct Email(SecretString);
+
+impl PartialEq for Email {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
     }
 }
 
-impl AsRef<str> for Email {
-    fn as_ref(&self) -> &str {
+impl Hash for Email {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.expose_secret().hash(state);
+    }
+}
+impl Email {
+    pub fn parse(email: SecretString) -> Result<Self> {
+        if email.expose_secret().contains("@") {
+            Ok(Email(email))
+        } else {
+            Err(eyre!("Email is not valid"))
+        }
+    }
+}
+impl Eq for Email {}
+
+impl AsRef<SecretString> for Email {
+    fn as_ref(&self) -> &SecretString {
         &self.0
     }
 }
@@ -24,21 +40,20 @@ mod email_tests {
 
     #[test]
     fn string_should_become_an_email() {
-        let email = Email::parse(String::from("test@test.com"));
+        let email = Email::parse(SecretString::new(String::from("test@test.com").into_boxed_str()));
 
         assert!(email.is_ok());
     }
     #[test]
     fn invalid_email_should_fail() {
-        let email = Email::parse(String::from("testtest.com"));
+        let email = Email::parse(SecretString::new(String::from("testtest.com").into_boxed_str()));
 
         assert!(email.is_err());
-        assert_eq!(email, Err(String::from("Email is not valid")))
     }
     #[test]
     fn email_ref_should_be_viewed_as_a_str() {
-        let email = Email::parse(String::from("test@test.com")).unwrap();
+        let email = Email::parse(SecretString::new(String::from("test@test.com").into_boxed_str())).unwrap();
 
-        assert_eq!(email.as_ref(), "test@test.com");
+        assert_eq!(email.as_ref().expose_secret(), "test@test.com");
     }
 }

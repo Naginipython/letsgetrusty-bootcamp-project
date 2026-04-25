@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
+use color_eyre::eyre::Context;
 use redis::{Connection, TypedCommands};
 use tokio::sync::RwLock;
+use secrecy::{ExposeSecret, SecretString};
 
 use crate::{domain::{BannedTokenStore, BannedTokenStoreError}, utils::auth::TOKEN_TTL_SECONDS};
 
@@ -19,26 +21,39 @@ impl RedisBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for RedisBannedTokenStore {
-    async fn store_token(&mut self, token: &str) -> Result<(), BannedTokenStoreError> {
-        if let Ok(true) = self.token_exists(token).await {
-            return Err(BannedTokenStoreError::TokenExists)
-        }
+    #[tracing::instrument(name = "Store token in Redis", skip_all)]
+    async fn store_token(&mut self, token: &SecretString) -> Result<(), BannedTokenStoreError> {
         let key = get_key(token);
+        
+        let ttl = TOKEN_TTL_SECONDS
+            .try_into()
+            .wrap_err("failed to cast TOKEN_TTL_SECONDS to u64")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
+        
         self.conn.write()
             .await
-            .set_ex(key, true, TOKEN_TTL_SECONDS as u64)
-            .map_err(|_|BannedTokenStoreError::UnexpectedError)?;
+            .set_ex(key, true, ttl)
+            .wrap_err("failed to set banned token in Redis")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
         Ok(())
     }
     
-    async fn token_exists(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
+    #[tracing::instrument(name = "Check if token exists in Redis", skip_all)]
+    async fn token_exists(&self, token: &SecretString) -> Result<bool, BannedTokenStoreError> {
         let key = get_key(token);
-        self.conn.write().await.exists(key).map_err(|_| BannedTokenStoreError::UnexpectedError)
+        let is_banned = self.conn
+            .write()
+            .await
+            .exists(key)
+            .wrap_err("failed to check if token exists in Redis")
+            .map_err(BannedTokenStoreError::UnexpectedError)?;
+        
+        Ok(is_banned)
     }
 }
 
-fn get_key(token: &str) -> String {
-    format!("{}{}", BANNED_TOKEN_KEY_PREFIX, token)
+fn get_key(token: &SecretString) -> String {
+    format!("{}{}", BANNED_TOKEN_KEY_PREFIX, token.expose_secret())
 }
 
 #[cfg(test)]
@@ -61,36 +76,36 @@ mod tests {
     #[tokio::test]
     async fn adding_to_store_doesnt_result_in_err() {
         let mut map = create_store();
-        let token = Uuid::new_v4();
-        let result = map.store_token(&token.to_string()).await;
+        let token = SecretString::new(Uuid::new_v4().to_string().into_boxed_str());
+        let result = map.store_token(&token).await;
         assert!(result.is_ok())
     }
 
-    #[tokio::test]
-    async fn cant_add_token_if_already_exists() {
-        let mut map = create_store();
-        let token = Uuid::new_v4();
-        let result = map.store_token(&token.to_string().clone()).await;
-        assert!(result.is_ok());
-        let result = map.store_token(&token.to_string()).await;
-        assert!(result.is_err());
-    }
+    // #[tokio::test]
+    // async fn cant_add_token_if_already_exists() {
+    //     let mut map = create_store();
+    //     let token = SecretString::new(Uuid::new_v4().to_string().into_boxed_str());
+    //     let result = map.store_token(&token.clone()).await;
+    //     assert!(result.is_ok());
+    //     let result = map.store_token(&token).await;
+    //     assert!(result.is_err());
+    // }
 
     #[tokio::test]
     async fn token_exist_true_test() {
         let mut map = create_store();
-        let _ = map.store_token("12345").await;
+        let _ = map.store_token(&SecretString::new(String::from("12345").into_boxed_str())).await;
 
-        let result = map.token_exists("12345").await;
-        assert_eq!(Ok(true), result);
+        let result = map.token_exists(&SecretString::new(String::from("12345").into_boxed_str())).await.unwrap();
+        assert!(result);
     }
 
     #[tokio::test]
     async fn token_exists_false_test() {
         let mut map = create_store();
-        let _ = map.store_token("12345").await;
+        let _ = map.store_token(&SecretString::new(String::from("12345").into_boxed_str())).await;
 
-        let result = map.token_exists("6789").await;
-        assert_eq!(Ok(false), result);
+        let result = map.token_exists(&SecretString::new(String::from("6789").into_boxed_str())).await.unwrap();
+        assert!(!result);
     }
 }

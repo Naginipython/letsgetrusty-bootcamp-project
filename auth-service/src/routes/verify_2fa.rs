@@ -1,5 +1,6 @@
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use axum_extra::extract::CookieJar;
+use secrecy::SecretString;
 use serde::Deserialize;
 
 use crate::{app_state::AppState, domain::{AuthAPIError, Email, LoginAttemptId, TwoFACode}, utils::auth::generate_auth_cookie};
@@ -13,12 +14,13 @@ pub struct Verify2FARequest {
     two_fa_code: String,
 }
 
+#[tracing::instrument(name = "Verify 2FA", skip_all)]
 pub async fn verify_2fa(
     jar: CookieJar,
     State(state): State<AppState>,
     Json(request
 ): Json<Verify2FARequest>) -> (CookieJar, Result<impl IntoResponse, AuthAPIError>) {
-    let email = match Email::parse(request.email) {
+    let email = match Email::parse(SecretString::new(request.email.into_boxed_str())) {
         Ok(email) => email,
         Err(_) => return (jar, Err(AuthAPIError::InvalidCredentials))
     };
@@ -32,7 +34,7 @@ pub async fn verify_2fa(
     };
 
     let mut two_fa_code_store = state.two_fa_code_store.write().await;
-    
+
     let code_tuple = match two_fa_code_store.get_code(&email).await {
         Ok(tuple) => tuple,
         Err(_) => return (jar, Err(AuthAPIError::IncorrectCredentials))
@@ -40,17 +42,16 @@ pub async fn verify_2fa(
     if code_tuple != (login_attempt_id, two_fa_code) {
         return (jar, Err(AuthAPIError::IncorrectCredentials))
     }
-    
-    if let Err(_) = two_fa_code_store.remove_code(&email).await {
-        return (jar, Err(AuthAPIError::UnexpectedError))
+
+    if let Err(e) = two_fa_code_store.remove_code(&email).await {
+        return (jar, Err(AuthAPIError::UnexpectedError(e.into())))
     }
-    
+
     let auth_cookie = generate_auth_cookie(&email);
     let updated_jar = match auth_cookie {
         Ok(cookie) => jar.add(cookie),
-        Err(_) => return (jar, Err(AuthAPIError::UnexpectedError))
+        Err(e) => return (jar, Err(AuthAPIError::UnexpectedError(e.into())))
     };
-    
 
     (updated_jar, Ok(StatusCode::OK.into_response()))
 }

@@ -1,5 +1,7 @@
 use auth_service::{ErrorResponse, domain::Email, routes::TwoFactorAuthResponse, utils::constants::JWT_COOKIE_NAME};
+use secrecy::{ExposeSecret, SecretString};
 use serde_json::json;
+use wiremock::{Mock, ResponseTemplate, matchers::{method, path}};
 
 use crate::{app_test, helpers::TestApp};
 
@@ -108,6 +110,13 @@ app_test! {
         let response = app.post_signup(&body).await;
         assert_eq!(response.status().as_u16(), 201);
         
+        Mock::given(path("/email"))
+            .and(method("POST"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&app.email_server)
+            .await;
+        
         let login_body = json!({
             "email": &email,
             "password": "password"
@@ -125,9 +134,9 @@ app_test! {
             String::from("2FA required")
         );
         
-        let email = Email::parse(email).unwrap();
+        let email = Email::parse(SecretString::new(email.into_boxed_str())).unwrap();
         let login_attempt_id = app.two_fa_code_store.read().await.get_code(&email).await;
         assert!(login_attempt_id.is_ok());
-        assert_eq!(response_body.login_attempt_id, login_attempt_id.unwrap().0.as_ref());
+        assert_eq!(response_body.login_attempt_id, login_attempt_id.unwrap().0.as_ref().expose_secret());
     }
 }
